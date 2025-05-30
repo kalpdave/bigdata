@@ -1,19 +1,19 @@
-# Big Data: Main Coursework
+# <p align=center>**Big Data: Main Coursework**
 
 #### Student Numbers: up2014075, up2161618
 
-### Introduction
+### <p align=center>**Introduction**
 
 CIFAR-100 is a dataset that consists of over 60,000 images that can be distributed across 100 different classifications. This dataset is recognized for its use in benchmarking image classification models. The model created throughout this coursework is a Convolutional Neural Network (CNN) model. This report will describe the basic CNN model architecture needed as well as the convolution layers, pooling strategies, and fully connected layers to identify images. The CNN model will then undergo improvements to increase the accuracy in identifying images.
 
-### Business Objectives
+### <p align=center>**Business Objectives**
 The purpose of the project is to create and evaluate a CNN model that is capable of recognizing images across different categories within the CIFAR-100 dataset by:
 
 - Achieving highly accurate results when classifying images into the 100 distinct classes
 - Ensuring the model functions and produces results when tested with unseen data
 - Improving and evaluating the CNN architecture to improve efficiency without compromising accuracy
 
-## First ML Pipeline Model
+## **First ML Pipeline Model**
 
 To understand how the model works, a basic model that at least functions had to be established first.
 
@@ -180,71 +180,64 @@ model = keras.models.Sequential([
 ```
 Increasing epochs to 50 or 100 improved accuracy by 1-2%, stabilizing performance but not significantly amplifying it.
 
-## Second ML Pipeline Model
+## **Second ML Pipeline Model**
 
 This model was developed based on an example provided by the university lecturer, refined with assistance from AI tools like DeepSeek and ChatGPT to polish errors.
 
-### Overall Code
 
+### 1. Data Collection and Processing
+The CIFAR-100 dataset was loaded using `cifar100.load_data()` from TensorFlow. 
 ```python
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import tensorflow as tf
-from tensorflow.keras.datasets import cifar100
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPool2D, Flatten, Dense
-from tensorflow.keras.callbacks import EarlyStopping
-from sklearn.model_selection import train_test_split
-import os
-
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
-# Load data
 (X_train, y_train), (X_test, y_test) = cifar100.load_data()
-num_classes = len(np.unique(y_train))
+```
 
-# Data quality check
-def check_pics(data, dataset_name):
-    bad_imgs = 0
-    good_imgs = 0
-    for i, img in enumerate(data):
-        if not isinstance(img, np.ndarray):
-            print(f"{dataset_name} img {i}: Not an array")
-            bad_imgs += 1
-            continue
-        if img.shape != (32, 32, 3):
-            print(f"{dataset_name} img {i}: Shape {img.shape}, need (32, 32, 3)")
-            bad_imgs += 1
-            continue
-        if not (img.dtype == np.uint8 and img.min() >= 0 and img.max() <= 255):
-            print(f"{dataset_name} img {i}: Bad pixels, min={img.min()}, max={img.max()}")
-            bad_imgs += 1
-            continue
-        if np.isnan(img).any():
-            print(f"{dataset_name} img {i}: NaN found")
-            bad_imgs += 1
-            continue
-        good_imgs += 1
-    print(f"{dataset_name}: {good_imgs} good, {bad_imgs} bad")
-
+Data was then quality checked for its array type and shape (32, 32, 3). 
+```python
 check_pics(X_train, "Train")
 check_pics(X_test, "Test")
+```
 
-# Split data
-X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=15)
-
-# Normalize and encode
-X_train = X_train.astype('float32') / 255
-X_val = X_val.astype('float32') / 255
-X_test = X_test.astype('float32') / 255
+Once shape and type of array were varified, the data would then be split into training and validation. For the second model the data split was 80-20:
+```python 
+X_train, X_val, y_train, y_val = train_test_split(
+    X_train, y_train, test_size=0.2, random_state=15
+)
+```
+Once a data split was established, the categorical class data was then converted to one-hot encoded vectors.
+```python 
 y_train = to_categorical(y_train, num_classes)
 y_val = to_categorical(y_val, num_classes)
 y_test = to_categorical(y_test, num_classes)
+```
 
-# Lightweight CNN
+### 2. EDA
+A data quality check ensured images were valid NumPy arrays with shape (32, 32, 3), pixel values in [0, 255], and no NaNs. This shape verification was then printed.
+```python 
+print(X_train.shape, y_train.shape)
+print(X_val.shape, y_val.shape)
+print(X_test.shape, y_test.shape)
+```
+Seaborn's barplot was used to visualize the distribution of class counts for each data split, that was calculated using the count_cls functions.
+```python 
+count_cls(y_test, "Test counts")
+count_cls(y_val, "Validation counts")
+count_cls(y_train, "Train counts")
+
+plt.figure(figsize=(15, 8))
+sns.barplot(data=counts, x='Set', y='Count', hue='Class',palette="coolwarm")
+plt.title("Class Counts")
+plt.legend([], [], frameon=False)
+```
+
+
+### 3. CNN Model
+A lightweight CNN was designed for faster training:
+- **Conv2D Layers**: 16 and 32 filters with 3x3 kernels, ReLU activation, and same padding.
+- **MaxPooling2D**: 2x2 pooling to reduce spatial dimensions.
+- **Flatten and Dense Layers**: 128-unit ReLU layer followed by a 100-unit softmax layer for classification.
+No dropout was included, potentially affecting generalization. The model was compiled with Adam optimizer, categorical cross-entropy loss, and accuracy metrics.
+
+```python 
 def light_cnn(shape, classes):
     model = Sequential()
     model.add(Conv2D(16, (3, 3), activation='relu', input_shape=shape, padding='same'))
@@ -259,108 +252,88 @@ def light_cnn(shape, classes):
 
 cnn1 = light_cnn((32, 32, 3), num_classes)
 cnn1.summary()
-
-# Training
-stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-train_data = tf.data.Dataset.from_tensor_slices((X_train, y_train)).shuffle(10000).batch(128).prefetch(tf.data.AUTOTUNE)
-val_data = tf.data.Dataset.from_tensor_slices((X_val, y_val)).batch(128).prefetch(tf.data.AUTOTUNE)
-
-cnn1_hist = cnn1.fit(train_data, epochs=20, validation_data=val_data, callbacks=[stop])
-
-# Evaluation
-cnn1_loss, cnn1_acc = cnn1.evaluate(X_test, y_test)
-print(f"Light CNN: Loss = {cnn1_loss:.2f}, Acc = {cnn1_acc * 100:.2f}%")
 ```
-
-### 1. Data Collection and Processing
-The CIFAR-100 dataset was loaded using `cifar100.load_data()` from TensorFlow. Data was normalized by converting pixel values to floats and scaling to [0,1]. Labels were one-hot encoded for multi-class classification.
-
-### 2. EDA
-A data quality check ensured images were valid NumPy arrays with shape (32, 32, 3), pixel values in [0, 255], and no NaNs. The dataset was split into training (80%) and validation (20%) sets. Class distribution was visualized using bar plots to confirm balanced classes.
-
-### 3. CNN Model
-A lightweight CNN was designed for faster training:
-- **Conv2D Layers**: 16 and 32 filters with 3x3 kernels, ReLU activation, and same padding.
-- **MaxPooling2D**: 2x2 pooling to reduce spatial dimensions.
-- **Flatten and Dense Layers**: 128-unit ReLU layer followed by a 100-unit softmax layer for classification.
-No dropout was included, potentially affecting generalization. The model was compiled with Adam optimizer, categorical cross-entropy loss, and accuracy metrics.
+This architecture, although similar to the first model, has a different range and size for the layers.
 
 ### 4. Training
-Training used `tf.data` for efficient data loading, with a batch size of 128 and 20 epochs. Early stopping monitored validation loss with a patience of 5 to prevent overfitting.
+Training used `tf.data` for efficient data loading, with a batch size of 128 and 20 epochs. Early stopping monitored validation loss, over consecutive epochs, with a patience of 5 to prevent overfitting.
+```python
+train_data = tf.data.Dataset.from_tensor_slices((X_train, y_train)).shuffle(10000).batch(128).prefetch(tf.data.AUTOTUNE)
+val_data = tf.data.Dataset.from_tensor_slices((X_val, y_val)).batch(128).prefetch(tf.data.AUTOTUNE)
+```
+```python
+stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+```
+The training commenced using the code:
+```python
+cnn1_hist = cnn1.fit(
+    train_data,
+    epochs=20,
+    validation_data=val_data,
+    callbacks=[stop]
+)
+```
+To visualize the history of results during the training, the resulting accuracies were plotted for each epoch.
+``` python
+plot_training(cnn1_hist, "light_cnn")
+```
 
 ### 5. Prediction, Results, and Evaluation
-The model was evaluated on the test set, achieving an accuracy of approximately 30-35%. A confusion matrix and classification report provided insights into class-wise performance. Single-image predictions and top-10 probability visualizations were generated to assess model behavior.
+The model was evaluated on the test set, achieving an accuracy of approximately 30-35%. 
+```python
+cnn1_loss, cnn1_acc = cnn1.evaluate(X_test, y_test)
+print(f"Light CNN: Loss = {cnn1_loss:.2f}, Acc = {cnn1_acc* 100:.2f}%")
+```
+A confusion matrix and classification report provided insights into class-wise performance. Single image predictions and top 10 probability visualizations were generated to see the behavious of the model:
+- Single image prediction and visualization
+```python
+idx = 15
+img = X_test[idx:idx+1]
+true = np.argmax(y_test[idx])
+probs = cnn1.predict(img)[0]
+pred = np.argmax(probs)
 
-## Third ML Pipeline Model
+plt.figure(figsize=(3, 3))
+plt.imshow(img[0])
+plt.title(f"Prediction is a: {class_names[pred]}, True images is a: {class_names[true]}")
+plt.axis('off')
+```
+- Top 10 class probabilities
+```python
+top_indices = np.argsort(probs)[::-1][:10]
+top_probs = probs[top_indices]
+top_classes = [class_names[i] for i in top_indices]
+prob_df = pd.DataFrame({'Class': top_classes, 'Prob': top_probs})
+
+plt.figure(figsize=(12, 4))
+sns.pointplot(data=prob_df, x='Class', y='Prob', palette="coolwarm")
+plt.title('Top Probabilities')
+plt.xticks(rotation=90)
+plt.show()
+```
+## **Third ML Pipeline Model**
 This model combines improvements from the first and second models, incorporating data augmentation and a deeper CNN architecture to achieve higher accuracy.
 
-### Overall Code
-
-```python
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import tensorflow as tf
-from tensorflow.keras.datasets import cifar100
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPool2D, Flatten, Dense, Dropout
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from sklearn.model_selection import train_test_split
-
-# Load data
-(X_train, y_train), (X_test, y_test) = cifar100.load_data()
-num_classes = len(np.unique(y_train))
-
-# Data quality check
-def check_pics(data, dataset_name):
-    bad_imgs = 0
-    good_imgs = 0
-    for i, img in enumerate(data):
-        if not isinstance(img, np.ndarray):
-            print(f"{dataset_name} img {i}: Not an array")
-            bad_imgs += 1
-            continue
-        if img.shape != (32, 32, 3):
-            print(f"{dataset_name} img {i}: Shape {img.shape}, need (32, 32, 3)")
-            bad_imgs += 1
-            continue
-        if not (img.dtype == np.uint8 and img.min() >= 0 and img.max() <= 255):
-            print(f"{dataset_name} img {i}: Bad pixels, min={img.min()}, max={img.max()}")
-            bad_imgs += 1
-            continue
-        if np.isnan(img).any():
-            print(f"{dataset_name} img {i}: NaN found")
-            bad_imgs += 1
-            continue
-        good_imgs += 1
-    print(f"{dataset_name}: {good_imgs} good images, {bad_imgs} bad images")
-
-check_pics(X_train, "Train")
-check_pics(X_test, "Test")
-
-# Data preparation
+### 1. Data Collection and Processing
+The structure of processing was very similar to the second model. The only difference being the normalization of data occurring before splitting the training data.
+```python 
 X_train = X_train.astype('float32') / 255.
 X_test = X_test.astype('float32') / 255.
 y_train = to_categorical(y_train, num_classes=100)
 y_test = to_categorical(y_test, num_classes=100)
+```
+This method follows the first model. This does not have a functional impact but was just for clarity.
 
-# Data splitting
-X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=15)
+### 2. EDA
+The EDA section was less detailed than the second model as it didn't include a class count or Seaborn visualization. This was done so that more focus could be pointed towards the modeling section. However, if needed the class count plot and Seaborn visualization could be easily implemented again using the same code, but with slight changes to the labelling.
 
-# Data augmentation
-datagen = ImageDataGenerator(
-    rotation_range=15,
-    width_shift_range=0.1,
-    height_shift_range=0.1,
-    horizontal_flip=True,
-    zoom_range=0.1
-)
-datagen.fit(X_train)
-
-# CNN model
+### <p align=center>**3. CNN Model**
+A deeper CNN was designed:
+- **Conv2D Layers**: Three layers with 128 filters each, 3x3 kernels, and ReLU activation.
+- **MaxPooling2D**: 2x2 pooling after each convolutional layer.
+- **Flatten and Dense Layers**: 256-unit ReLU layer with 0.5 dropout, followed by a 100-unit softmax layer.
+The model was compiled with Adam optimizer, categorical cross-entropy loss, and accuracy metrics.
+```python 
 cnn1 = Sequential([
     Conv2D(128, (3, 3), activation='relu', input_shape=(32, 32, 3)),
     MaxPool2D((2, 2)),
@@ -373,50 +346,41 @@ cnn1 = Sequential([
     Dropout(0.5),
     Dense(100, activation='softmax')
 ])
-
 cnn1.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-
-# Training
-cnn_training = cnn1.fit(
-    datagen.flow(X_train, y_train, batch_size=64),
-    epochs=50,
-    validation_data=(X_val, y_val),
-    callbacks=[stop]
-)
-
-# Evaluation
-test_loss, test_accuracy = cnn1.evaluate(X_test, y_test)
-print(f"Test accuracy: {test_accuracy * 100:.2f}%")
 ```
-
-### 1. Data Collection and Processing
-The CIFAR-100 dataset was loaded from TensorFlow. Images were normalized to [0,1], and labels were one-hot encoded. A data quality check validated image arrays, shapes, and pixel values.
-
-### 2. EDA
-The training data was split into 80% training and 20% validation sets. Class distribution was analyzed to ensure balance, similar to the second model.
-
-### 3. CNN Model
-A deeper CNN was designed:
-- **Conv2D Layers**: Three layers with 128 filters each, 3x3 kernels, and ReLU activation.
-- **MaxPooling2D**: 2x2 pooling after each convolutional layer.
-- **Flatten and Dense Layers**: 256-unit ReLU layer with 0.5 dropout, followed by a 100-unit softmax layer.
-The model was compiled with Adam optimizer, categorical cross-entropy loss, and accuracy metrics.
+The main change is seen with the addition of a basic data augmentation seen via:
+```python
+datagen = ImageDataGenerator(
+    rotation_range=15,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    horizontal_flip=True,
+    zoom_range=0.1
+)
+datagen.fit(X_train)
+```
+Data augmentation was included to try significantly increase the accuracy of the model.
 
 ### 4. Training
-Data augmentation was applied (rotation, shifts, flips, zoom) to enhance training and reduce overfitting. The model was trained for 50 epochs with a batch size of 64, using early stopping to monitor validation loss.
-
+The changes to the training section were minimal. The biggest difference was that the model would now train with augmentated data along with the original training too.
+The epoch limit was also change from 20 to 50 as this would allow the performance of the model to reach its maximum.
 ### 5. Prediction, Results, and Evaluation
-The model achieved a test accuracy of approximately 40-45%. Multi-image visualizations showed predictions with true labels and correctness. Single-image predictions included top-10 probability plots. A confusion matrix and classification report detailed class-wise performance.
+The model achieved a test accuracy of approximately 40-45%, which was higher than the previous two models.
+
+The results were represented displayed the same way: 
+
+- Multi-image visualizations showed predictions with true labels and correctness. 
+- Single-image predictions included top-10 probability plots. 
+- A confusion matrix and classification report detailed class wise performance.
 
 ## Future Work
 With a working model, the primary objectives for future work would be to improve the processing time taken when training the model for each epoch as well as increasing the accuracy.
 
 Processing time could be cut by introducing batch normalization, which normalizes layer inputs, making training faster and more stable.
 
-To increase accuracy, image augmentation can be further tuned, or advanced architectures like ResNet or transfer learning with pre-trained models (e.g., MobileNetV2) could be explored.
+To increase accuracy, image augmentation could be further tuned, or advanced architectures like ResNet or transfer learning with pre-trained models (e.g., MobileNetV2) could be explored.
 
-## Libraries and Modules
+## <p align=center>**Libraries and Modules**
 ### Libraries
 - **NumPy**: Used for numerical operations and array management.
 - **Pandas**: Facilitated data frame operations for class counts and results.
@@ -434,13 +398,13 @@ To increase accuracy, image augmentation can be further tuned, or advanced archi
 - **tensorflow.keras.datasets**: Provides dataset loaders.
 - **keras.preprocessing.image**: Supports data augmentation.
 
-## Unresolved Issues and Bugs
+## <p align=center>**Unresolved Issues and Bugs**
 Most issues occurred during code construction, such as incorrect labels in functions. Kernel crashes required refreshing before running code, possibly due to internet connection issues or CPU memory constraints.
 
-## Conclusions
+## <p align=center>**Conclusions**
 Over this project, a model has successfully been created that predicts and identifies images from the CIFAR-100 dataset with up to 45% accuracy. The progression from a basic CNN (36.9%) to a lightweight model (30-35%) and a deeper, augmented model (40-45%) demonstrates improvements in architecture and training strategies. The project provided insights into ML pipelines, CNN architectures, and their application in image classification.
 
-## References and Acknowledgments
+## <p align=center>**References and Acknowledgments**
 - [GeeksforGeeks: Image Classification using CIFAR-100](https://www.geeksforgeeks.org/image-classification-using-cifar-10-and-cifar-100-dataset-in-tensorflow/): Structured EDA for the first model.
 - [GitHub: LeoTungAnh/CNN-CIFAR-100](https://github.com/LeoTungAnh/CNN-CIFAR-100/blob/main/CNN_models.ipynb): Guided data processing and one-hot encoding for the first model.
 - [GitHub: uzairlol/CIFAR100-Image-Classification-CNN](https://github.com/uzairlol/CIFAR100-Image-Classification-CNN/blob/main/Item%20Image%20Model%20Training%20and%20Evaluation.ipynb): Inspired CNN architecture for the first model.
@@ -448,7 +412,7 @@ Over this project, a model has successfully been created that predicts and ident
 - University lecturer’s coursework support file: Guided the second model’s structure.
 - AI tools (ChatGPT, DeepSeek, Grok): Provided limited assistance in debugging, structuring code, and refining model configurations within permitted coursework guidelines.
 
-## Terms and Definitions
+## <p align=center>**Terms and Definitions**
 - *Overfitting*: When a model learns training data too well, including noise, leading to poor generalization.
 - *Optimizer*: Algorithm to minimize loss by updating model parameters.
 - *Epoch*: A complete pass through the training dataset.
