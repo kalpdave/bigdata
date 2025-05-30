@@ -134,13 +134,17 @@ show_samples(x_train, y_train)
 This section prints and displays the shape of the training and test datasets to confirm dimensions. It also shows a random sample of images from the dataset using Matplotlib.
 
 ### 3. CNN Model
-To filter data and patterns from the images, a layered architecture was implemented:
+To filter data and patterns from the images, a step by step layered architecture was implemented:
 
 - **Convolutional Layering (`Conv2D`)**: Extracts features from images by applying filters.
 - **Pooling Layers (`MaxPooling2D`)**: Reduces spatial dimensions in feature maps.
 - **Flattening Layers (`Flatten`)**: Transforms 2D feature maps into 1D vectors.
 - **Dense Layers**: Connects layers for classification.
 - **Dropout Layer**: Prevents overfitting by randomly setting nodes to zero during training.
+
+This layering system acts similar to a filtering system that provides the model with data to determine potential image classes.
+
+The `relu` stands for *Rectified Linear Unit*, which replaces negative values with zero and keeps positive values unchanged. This helps network models to learn complex matterns without running into issues such as vanishing gradients.
 
 The model was compiled using:
 ```python
@@ -359,8 +363,27 @@ datagen = ImageDataGenerator(
 )
 datagen.fit(X_train)
 ```
-Data augmentation was included to try significantly increase the accuracy of the model.
-
+Data augmentation was included to try significantly increase the accuracy of the model. The augmentation includes:
+- Rotating images by +/- 15 degrees.
+```python 
+rotation_range=15
+```
+- Randomly shifting images horizontally by 10% of the total image width.
+```python 
+width_shift_range=0.1
+```
+- Randomly shifting images vertically by 10% of the total image height.
+```python 
+height_shift_range=0.1
+```
+- Radomly flipping images horizontally (left or right).
+```python 
+horizontal_flip=True
+```
+- Randomly zooming into images in and out by up to 10%.
+```python 
+zoom_range=0.1
+```
 ### 4. Training
 The changes to the training section were minimal. The biggest difference was that the model would now train with augmentated data along with the original training too.
 The epoch limit was also change from 20 to 50 as this would allow the performance of the model to reach its maximum.
@@ -374,7 +397,7 @@ The results were represented displayed the same way:
 - A confusion matrix and classification report detailed class wise performance.
 
 ## Future Work
-With a working model, the primary objectives for future work would be to improve the processing time taken when training the model for each epoch as well as increasing the accuracy.
+With a working model, the primary objectives for future work would be to improve the processing time taken when training the model for each epoch as well as increasing the accuracy. This is due to the processing time of the third model being over 65 minutes, while only still producing less than 50% accuracy.
 
 Processing time could be cut by introducing batch normalization, which normalizes layer inputs, making training faster and more stable.
 
